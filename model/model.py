@@ -418,7 +418,7 @@ class BiLSTM(nn.Module):
         super().__init__()
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(10000, input_dim)
+        self.embedder = nn.Embedding(20000, input_dim)
         self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
         self.dropout=nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_dim * 2, output_dim)  # 输出层与输入层的维度相同
