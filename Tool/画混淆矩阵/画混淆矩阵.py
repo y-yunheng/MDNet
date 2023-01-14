@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-filepath="小论文/Log/model4/img/"
+filepath="Log/model4/img/"
 confusion_matrix = np.load(filepath+"1confusion_matrix.np.npy")
 
 matplotlib.rcParams['font.family'] = 'STSong'  # 修改了全局变量
@@ -31,7 +31,7 @@ for i, j in iters:
 
 
 plt.xlabel('True classification')
-plt.ylabel('Forecast classification')
+plt.ylabel('Predicted classification')
 
 plt.tight_layout()
 plt.savefig(filepath+"0confusion_matrix.svg")

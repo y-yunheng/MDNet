@@ -2,11 +2,11 @@
 import time
 import pynvml
 
-from 小论文.Tool.Accuracy import MutiAccuracy
-from 小论文.Tool.DrawImag.DrawImag import Draw_Confusion_matrix
-from 小论文.Tool.MyDataset import MyDatasetPandas
-from 小论文.Tool.MyLoss import CrossEntropyCriterion
-from 小论文.model.model import FastText, MDnet, BiLSTM, ST_MFLC, TextCNN
+from Tool.Accuracy import MutiAccuracy
+from Tool.DrawImag.DrawImag import Draw_Confusion_matrix
+from Tool.MyDataset import MyDatasetPandas
+from Tool.MyLoss import CrossEntropyCriterion
+from model.model import FastText, MDnet, BiLSTM, ST_MFLC, TextCNN
 
 pynvml.nvmlInit()
 handle = pynvml.nvmlDeviceGetHandleByIndex(0)

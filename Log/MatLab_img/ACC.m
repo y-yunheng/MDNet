@@ -5,7 +5,7 @@ test="test_log.xlsx";
 rt_test="rt_test_log.xlsx";
 train="train_log.xlsx";
 
-savedir="D:\项目\Graduate_project\小论文\Log\MatLab_img\img";
+savedir="D:\项目\小论文\MDNet\Log\MatLab_img\img";
 color=["b","g","r","k","m"];
 fl=["o","x","d","v","s"];
 figure(1)
