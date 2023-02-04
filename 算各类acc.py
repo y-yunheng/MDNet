@@ -7,20 +7,21 @@ import numpy as np
 
 print("Recall")
 for k in range(0,5):
-    floderpath = r"D:\项目\Graduate_project\小论文\Log\model" + str(k) + "\img\\1confusion_matrix.np.npy"
+    floderpath = r"D:\项目\小论文\MDNet\Log\model" + str(k) + r"\img\\1confusion_matrix.np.npy"
     confusion_matrix = np.load(floderpath)
     newnp = confusion_matrix.sum(0)
+    newrecall=[0,0,0,0,0,0]
     for i in range(len(newnp)):
         if (newnp[i] != 0):
-            newnp[i] = confusion_matrix[i][i] / newnp[i]
-    f = open("D:/项目/Graduate_project/小论文/Log/model" + str(k) + "/img" + "/" + "recall.txt", "w")
-    a = str(newnp)
-    print(str(newnp))
+            newrecall[i] = confusion_matrix[i][i] / newnp[i]
+    f = open(r"D:\项目\小论文\MDNet\Log\model" + str(k) + "/img" + "/" + "recall.txt", "w")
+    a = str(newrecall)
+    print(str(newrecall))
     f.write(a)
 
 print("Far 假阳率  阴中预测为阳")
 for k in range(0,5):
-    floderpath = r"D:\项目\Graduate_project\小论文\Log\model" + str(k) + "\img\\1confusion_matrix.np.npy"
+    floderpath = r"D:\项目\小论文\MDNet\Log\model" + str(k) + r"\img\\1confusion_matrix.np.npy"
     a = np.load(floderpath)
     allnum = np.sum(a, -1)
     allnum = np.sum(allnum, -1)
@@ -29,14 +30,14 @@ for k in range(0,5):
         alli = np.sum(a[i]) - a[i][i]
         wall = allnum - np.sum(a[:, i])
         newnp.append(alli / wall)
-    f = open("D:/项目/Graduate_project/小论文/Log/model" + str(k) + "/img" + "/" + "far.txt", "w")
+    f = open(r"D:\项目\小论文\MDNet\Log\model" + str(k) + "/img" + "/" + "far.txt", "w")
     a = str(newnp)
     print(str(newnp))
     f.write(a)
 
 print("准确率")
 for k in range(0,5):
-    floderpath = r"D:\项目\Graduate_project\小论文\Log\model" + str(k) + "\img\\1confusion_matrix.np.npy"
+    floderpath = r"D:\项目\小论文\MDNet\Log\model" + str(k) + r"\img\\1confusion_matrix.np.npy"
     a = np.load(floderpath)
     allnum = np.sum(a, -1)
     allnum = np.sum(allnum, -1)
@@ -46,7 +47,7 @@ for k in range(0,5):
         FN=allnum-np.sum(a[:,i])-np.sum(a[i])+a[i][i]
 
         newnp.append((TP+FN) / allnum)
-    f = open("D:/项目/Graduate_project/小论文/Log/model" + str(k) + "/img" + "/" + "acc.txt", "w")
+    f = open(r"D:\项目\小论文\MDNet\Log\model" + str(k) + "/img" + "/" + "acc.txt", "w")
     a = str(newnp)
     print(str(newnp))
     f.write(a)

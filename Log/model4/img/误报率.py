@@ -1,6 +1,6 @@
 import numpy as np
 
-a=np.load(r"D:\项目\Graduate_project\小论文\Log\model4\img\1confusion_matrix.np.npy")
+a=np.load(r"D:\项目\小论文\MDNet\Log\model4\img\1confusion_matrix.np.npy")
 print(a)
 allnum=np.sum(a,-1)
 allnum=np.sum(allnum,-1)
