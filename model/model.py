@@ -413,60 +413,7 @@ class ST_MFLC(nn.Module):
         file.close()
         return dic
 
-class BiLSTM(nn.Module):
-    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
-        super().__init__()
-        self.dickw = self.readidc("Datasets\dick\word_kw.txt")
-        self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
-        self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
-        self.dropout=nn.Dropout(dropout)
-        self.linear = nn.Linear(hidden_dim * 2, output_dim)  # 输出层与输入层的维度相同
 
-    def forward(self, inputs):
-        tensorwords, seqlen = self.convert_woed2ids(inputs)
-        embed_tensor = self.convert_ids2vector(tensorwords.cuda())
-        data = pack_padded_sequence(embed_tensor, seqlen, batch_first=True, enforce_sorted=False).cuda()
-        encoder_out, hidden_hc = self.lstm(data)
-        encoder_hidden_output, seq_len = pad_packed_sequence(encoder_out, batch_first=True)
-        feature = self.get_s(encoder_hidden_output, seq_len)
-        #feature=self.dropout(feature)
-        output = self.linear(feature)
-        return output
-    def get_s(self,encoder_hidden_output,seqlen):
-        batch=[]
-        for i in range(len(seqlen)):
-            batch.append(i)
-        index=seqlen-1
-        s=encoder_hidden_output[batch,index,:]
-        return s.unsqueeze(1)
-
-
-    def convert_woed2ids(self,words):
-        listids=[]
-
-        seqlen=[]
-        for oneword in  words:
-            listids_one = []
-            for char in oneword:
-                if char not in self.dicwk.keys():
-                    listids_one.append(self.dicwk['puk'])
-                else:
-                    listids_one.append(self.dicwk[char])
-            seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
-                listids_one.append(self.dicwk['pad'])
-            listids.append(listids_one)
-        return torch.tensor(listids),seqlen
-    def convert_ids2vector(self,tensorwords):
-
-        return self.embedder(tensorwords)
-    def readidc(self,path):
-        file = open(path, 'r',encoding="utf-8")
-        js = file.read()
-        dic = eval(js)
-        file.close()
-        return dic
 
 class CNN3_LSTM(nn.Module):
     def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
@@ -563,3 +510,171 @@ class CNN3_LSTM(nn.Module):
         file.close()
         return dic
 
+class BiLSTM(nn.Module):
+    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
+        super().__init__()
+        self.dickw = self.readidc("Datasets\dick\word_kw.txt")
+        self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
+        self.embedder = nn.Embedding(20000, input_dim)
+        self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
+        self.dropout=nn.Dropout(dropout)
+        self.linear = nn.Linear(hidden_dim * 2, output_dim)  # 输出层与输入层的维度相同
+
+    def forward(self, inputs):
+        tensorwords, seqlen = self.convert_woed2ids(inputs)
+        embed_tensor = self.convert_ids2vector(tensorwords.cuda())
+        data = pack_padded_sequence(embed_tensor, seqlen, batch_first=True, enforce_sorted=False).cuda()
+        encoder_out, hidden_hc = self.lstm(data)
+        encoder_hidden_output, seq_len = pad_packed_sequence(encoder_out, batch_first=True)
+        feature = self.get_s(encoder_hidden_output, seq_len)
+        #feature=self.dropout(feature)
+        output = self.linear(feature)
+        return output
+    def get_s(self,encoder_hidden_output,seqlen):
+        batch=[]
+        for i in range(len(seqlen)):
+            batch.append(i)
+        index=seqlen-1
+        s=encoder_hidden_output[batch,index,:]
+        return s.unsqueeze(1)
+
+
+    def convert_woed2ids(self,words):
+        listids=[]
+
+        seqlen=[]
+        for oneword in  words:
+            listids_one = []
+            for char in oneword:
+                if char not in self.dicwk.keys():
+                    listids_one.append(self.dicwk['puk'])
+                else:
+                    listids_one.append(self.dicwk[char])
+            seqlen.append(len(listids_one))
+            while(len(listids_one)<4000):
+                listids_one.append(self.dicwk['pad'])
+            listids.append(listids_one)
+        return torch.tensor(listids),seqlen
+    def convert_ids2vector(self,tensorwords):
+
+        return self.embedder(tensorwords)
+    def readidc(self,path):
+        file = open(path, 'r',encoding="utf-8")
+        js = file.read()
+        dic = eval(js)
+        file.close()
+        return dic
+
+
+
+
+
+class LSTM(nn.Module):
+    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
+        super().__init__()
+        self.dickw = self.readidc("Datasets\dick\word_kw.txt")
+        self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
+        self.embedder = nn.Embedding(20000, input_dim)
+        self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=False, batch_first=True)
+        self.dropout=nn.Dropout(dropout)
+        self.linear = nn.Linear(hidden_dim, output_dim)  # 输出层与输入层的维度相同
+
+    def forward(self, inputs):
+        tensorwords, seqlen = self.convert_woed2ids(inputs)
+        embed_tensor = self.convert_ids2vector(tensorwords.cuda())
+        data = pack_padded_sequence(embed_tensor, seqlen, batch_first=True, enforce_sorted=False).cuda()
+        encoder_out, hidden_hc = self.lstm(data)
+        encoder_hidden_output, seq_len = pad_packed_sequence(encoder_out, batch_first=True)
+        feature = self.get_s(encoder_hidden_output, seq_len)
+        #feature=self.dropout(feature)
+        output = self.linear(feature)
+        return output
+    def get_s(self,encoder_hidden_output,seqlen):
+        batch=[]
+        for i in range(len(seqlen)):
+            batch.append(i)
+        index=seqlen-1
+        s=encoder_hidden_output[batch,index,:]
+        return s.unsqueeze(1)
+
+
+    def convert_woed2ids(self,words):
+        listids=[]
+
+        seqlen=[]
+        for oneword in  words:
+            listids_one = []
+            for char in oneword:
+                if char not in self.dicwk.keys():
+                    listids_one.append(self.dicwk['puk'])
+                else:
+                    listids_one.append(self.dicwk[char])
+            seqlen.append(len(listids_one))
+            while(len(listids_one)<4000):
+                listids_one.append(self.dicwk['pad'])
+            listids.append(listids_one)
+        return torch.tensor(listids),seqlen
+    def convert_ids2vector(self,tensorwords):
+
+        return self.embedder(tensorwords)
+    def readidc(self,path):
+        file = open(path, 'r',encoding="utf-8")
+        js = file.read()
+        dic = eval(js)
+        file.close()
+        return dic
+
+class Simple_RNN(nn.Module):
+    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
+        super().__init__()
+        self.dickw = self.readidc("Datasets\dick\word_kw.txt")
+        self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
+        self.embedder = nn.Embedding(20000, input_dim)
+        self.lstm=nn.RNN(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=False, batch_first=True)
+        self.dropout=nn.Dropout(dropout)
+        self.linear = nn.Linear(hidden_dim, output_dim)  # 输出层与输入层的维度相同
+
+    def forward(self, inputs):
+        tensorwords, seqlen = self.convert_woed2ids(inputs)
+        embed_tensor = self.convert_ids2vector(tensorwords.cuda())
+        data = pack_padded_sequence(embed_tensor, seqlen, batch_first=True, enforce_sorted=False).cuda()
+        encoder_out, hidden_hc = self.lstm(data)
+        encoder_hidden_output, seq_len = pad_packed_sequence(encoder_out, batch_first=True)
+        feature = self.get_s(encoder_hidden_output, seq_len)
+        #feature=self.dropout(feature)
+        output = self.linear(feature)
+        return output
+    def get_s(self,encoder_hidden_output,seqlen):
+        batch=[]
+        for i in range(len(seqlen)):
+            batch.append(i)
+        index=seqlen-1
+        s=encoder_hidden_output[batch,index,:]
+        return s.unsqueeze(1)
+
+
+    def convert_woed2ids(self,words):
+        listids=[]
+
+        seqlen=[]
+        for oneword in  words:
+            listids_one = []
+            for char in oneword:
+                if char not in self.dicwk.keys():
+                    listids_one.append(self.dicwk['puk'])
+                else:
+                    listids_one.append(self.dicwk[char])
+            seqlen.append(len(listids_one))
+            while(len(listids_one)<4000):
+                listids_one.append(self.dicwk['pad'])
+            listids.append(listids_one)
+        return torch.tensor(listids),seqlen
+    def convert_ids2vector(self,tensorwords):
+
+        return self.embedder(tensorwords)
+    def readidc(self,path):
+        file = open(path, 'r',encoding="utf-8")
+        js = file.read()
+        dic = eval(js)
+        file.close()
+        return dic

@@ -6,7 +6,7 @@
 import numpy as np
 
 print("Recall")
-for k in range(0,5):
+for k in range(0,7):
     floderpath = r"D:\项目\小论文\MDNet\Log\model" + str(k) + r"\img\\1confusion_matrix.np.npy"
     confusion_matrix = np.load(floderpath)
     newnp = confusion_matrix.sum(0)
@@ -20,7 +20,7 @@ for k in range(0,5):
     f.write(a)
 
 print("Far 假阳率  阴中预测为阳")
-for k in range(0,5):
+for k in range(0,7):
     floderpath = r"D:\项目\小论文\MDNet\Log\model" + str(k) + r"\img\\1confusion_matrix.np.npy"
     a = np.load(floderpath)
     allnum = np.sum(a, -1)
@@ -36,7 +36,7 @@ for k in range(0,5):
     f.write(a)
 
 print("准确率")
-for k in range(0,5):
+for k in range(0,7):
     floderpath = r"D:\项目\小论文\MDNet\Log\model" + str(k) + r"\img\\1confusion_matrix.np.npy"
     a = np.load(floderpath)
     allnum = np.sum(a, -1)

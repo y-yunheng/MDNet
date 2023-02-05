@@ -6,11 +6,11 @@ rt_test="rt_test_log.xlsx";
 train="train_log.xlsx";
 
 savedir="D:\项目\小论文\MDNet\Log\MatLab_img\img";
-color=["b","g","r","k","m"];
-fl=["o","x","d","v","s"];
+color=["r","g","b","m","m","k","c"];
+fl=["o","x","d","v","s","+","p","h"];
 figure(1)
-for i=0:4
-    modeldir="D:\项目\Graduate_project\小论文\Log\model"+i;
+for i=0:6
+    modeldir="D:\项目\小论文\MDNet\Log\model"+i;
     %model_test=readmatrix(modeldir+"/"+test);
     model_train=readmatrix(modeldir+"\"+train);
     %model_rt_test=readmatrix(modeldir+"/"+rt_test);    
@@ -29,7 +29,7 @@ for i=0:4
     hold on
 end
 
-legend("MDNet","FastText","TextCNN","ST-MFLC", "BiLSTM")
+legend("MDNet","FastText","TextCNN","ST-MFLC", "BiLSTM","LSTM","Simple-RNN")
 xlabel('Step')
 ylabel('Loss Value')
 

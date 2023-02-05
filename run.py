@@ -6,7 +6,7 @@ from Tool.Accuracy import MutiAccuracy
 from Tool.DrawImag.DrawImag import Draw_Confusion_matrix
 from Tool.MyDataset import MyDatasetPandas
 from Tool.MyLoss import CrossEntropyCriterion
-from model.model import FastText, MDnet, BiLSTM, ST_MFLC, TextCNN
+from model.model import FastText, MDnet, BiLSTM, ST_MFLC, TextCNN, LSTM, Simple_RNN
 
 pynvml.nvmlInit()
 handle = pynvml.nvmlDeviceGetHandleByIndex(0)
@@ -20,9 +20,9 @@ from torch.utils.data import DataLoader
 
 DEVICE=torch.device('cuda'if torch.cuda.is_available()else'cpu')
 
-modelname=["model0","model1","model2","model3","model4"]
-models=[ MDnet(), FastText(), TextCNN(),ST_MFLC(), BiLSTM()]
-modelindex=4
+modelname=["model0","model1","model2","model3","model4","model5","model6"]
+models=[ MDnet(), FastText(), TextCNN(),ST_MFLC(), BiLSTM(),LSTM(),Simple_RNN()]
+modelindex=6
 try:
     #尝试加载模型
     model =torch.load("Log/"+modelname[modelindex]+"/work/model.pt")

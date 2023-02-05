@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
 
-filepath="Log/model4/img/"
+filepath="Log/model6/img/"
 confusion_matrix = np.load(filepath+"1confusion_matrix.np.npy")
 
 matplotlib.rcParams['font.family'] = 'STSong'  # 修改了全局变量
