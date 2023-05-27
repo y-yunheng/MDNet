@@ -3,15 +3,17 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-
-filepath="Log/model6/img/"
+modelsname=[ "C-PsyD", "FastText", "TextCNN","ST-MFLC", "BiLSTM","LSTM","Simple-RNN"]
+indexi=6
+filepath="Log/model"+str(indexi)+"/img/"
 confusion_matrix = np.load(filepath+"1confusion_matrix.np.npy")
-
+confusion_matrix=np.delete(confusion_matrix,obj=0,axis=0)
+confusion_matrix=np.delete(confusion_matrix,obj=0,axis=1)
 matplotlib.rcParams['font.family'] = 'STSong'  # 修改了全局变量
 matplotlib.rcParams['font.size'] = 15
 kname = 0
-classes = [i for i in range(len(confusion_matrix))]
-plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Oranges)  # 按照像素显示出矩阵
+classes = [i+1 for i in range(len(confusion_matrix))]
+plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)  # 按照像素显示出矩阵
 plt.title('')
 
 cb = plt.colorbar()
@@ -29,12 +31,13 @@ for i, j in iters:
     else:
         plt.text(j - 0.2, i + 0.15, format(int(confusion_matrix[i, j])))
 
-
-plt.xlabel('True classification')
-plt.ylabel('Predicted classification')
+plt.title(modelsname[indexi])
+plt.xlabel('真实分类')
+plt.ylabel('预测分类')
 
 plt.tight_layout()
-plt.savefig(filepath+"0confusion_matrix.svg")
+plt.savefig(filepath+modelsname[indexi]+"混淆矩阵.svg")
+#plt.savefig("D:/BaiduNetdiskWorkspace/OneDrive/论文/硕士毕业论文/毕业论文/图像/"+ modelsname[indexi]+"混淆矩阵.svg")
 kname += 1
 plt.close()
 

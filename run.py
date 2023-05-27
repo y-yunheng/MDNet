@@ -22,10 +22,10 @@ DEVICE=torch.device('cuda'if torch.cuda.is_available()else'cpu')
 
 modelname=["model0","model1","model2","model3","model4","model5","model6"]
 models=[ MDnet(), FastText(), TextCNN(),ST_MFLC(), BiLSTM(),LSTM(),Simple_RNN()]
-modelindex=6
+modelindex=4
 try:
     #尝试加载模型
-    model =torch.load("Log/"+modelname[modelindex]+"/work/model.pt")
+    model =torch.load("Lorrrrrrrrrg/"+modelname[modelindex]+"/work/model.pt")
     print("加载模型成功")
 except:
     #加载模型失败新建模型
@@ -36,8 +36,8 @@ except:
 #设置相关数据集，设置好相关训练参数，包括数据加载器，训练epoch数
 
 #设置训练次数、批次
-Epoch=5
-Batch_Szie=64
+Epoch=10
+Batch_Szie=256
 train_dataset = MyDatasetPandas(r"Datasets\Public_mental\train.xlsx")
 test_dataset = MyDatasetPandas(r"Datasets\Public_mental\test.xlsx")
 train_loader = DataLoader(train_dataset, batch_size=Batch_Szie, shuffle=False)

@@ -94,7 +94,48 @@ class Attention(nn.Module):
         # res[batch_size,step_time]
         return res
 
+class MDetTextCNN(nn.Module):
+    def __init__(self, num_classes=6, embedding_dim=128, filter_sizes=[2, 3, 4], num_filters=[128, 128, 128],
+                 dropout_prob=0.2, device="cpu"):
+        super( MDetTextCNN, self).__init__()
+        # 定义卷积和池化层
+        self.device = device
+        self.embed = nn.Embedding(11000, embedding_dim).to(self.device)
+        # 定义嵌入层
+        self.convs = nn.ModuleList([
+            nn.Conv1d(in_channels=embedding_dim, out_channels=num_filters[i], kernel_size=filter_sizes[i]).to(
+                self.device) for i in range(len(filter_sizes))
+        ])
+        self.poolsm = nn.ModuleList([
+            nn.MaxPool1d(kernel_size=1000 - filter_sizes[k] + 1) for k in range(len(filter_sizes))
+        ])
+        self.poolsa = nn.ModuleList([
+            nn.MaxPool1d(kernel_size=1000 - filter_sizes[k] + 1) for k in range(len(filter_sizes))
+        ])
 
+        # 定义dropout层和全连接层
+        self.dropout = nn.Dropout(p=dropout_prob)
+        self.fc1= nn.Linear(in_features=embedding_dim*2, out_features=embedding_dim).to(self.device)
+        self.fc = nn.Linear(in_features=sum(num_filters), out_features=embedding_dim*2).to(self.device)
+
+    def forward(self, x):
+        # 经过多个卷积层和池化层
+        embedded = x
+        conv_outputs = []
+        for conv, poolm,poola in zip(self.convs, self.poolsm,self.poolsa):
+            conv_output = conv(embedded.transpose(1, 2))  # (batch_size, num_filter, seq_len - filter_size + 1)
+            relu_output = nn.functional.relu(conv_output)
+            pool_outputm = poolm(relu_output).squeeze(-1)  # (batch_size, num_filter)
+            pool_outputa = poola(relu_output).squeeze(-1)
+            pool_output=self.fc1(torch.cat([pool_outputm,pool_outputa],dim=-1)).reshape(len(pool_outputa ),-1)
+            conv_outputs.append(pool_output)
+        combined = torch.cat(conv_outputs, dim=1)
+
+        # 使用dropout层和全连接层进行分类
+        dropped = self.dropout(combined)
+        logits = self.fc(dropped)
+
+        return logits
 class MDnet(nn.Module):
     def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
         super().__init__()
@@ -103,19 +144,12 @@ class MDnet(nn.Module):
 
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
+        self.embedder = nn.Embedding(11000, input_dim)
         self.attention = Attention(hidden_dim, bidirectional=True)
+
         self.self_attention = Self_Attention(hidden_dim,True)
 
-        self.conv1 = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=128, kernel_size=2, stride=1),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=128, out_channels=128, kernel_size=2, stride=1),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=128, out_channels=128, kernel_size=2, stride=1),
-            nn.ReLU(),
-        )
-
+        self.cnn = MDetTextCNN()
         # self.dropoutconv=nn.Dropout(dropout)
         self.dropoutrnn = nn.Dropout(dropout)
         # self.dropoutsa = nn.Dropout(dropout)
@@ -123,7 +157,7 @@ class MDnet(nn.Module):
         # self.lstm_grufc=nn.Linear(hidden_dim * 2 , hidden_dim )
         # self.convfc=nn.Linear(3990,256)
         # self.cnnfc = nn.Linear(hidden_dim * 2, output_dim)
-        self.rnnfc = nn.Linear(hidden_dim * 2, output_dim)  # 输出层与输入层的维度相同
+        self.rnnfc = nn.Linear(hidden_dim * 4, output_dim)  # 输出层与输入层的维度相同
         # self.safc = nn.Linear(hidden_dim* 2 , output_dim)  # 输出层与输入层的维度相同
         # self.outfc = nn.Linear(output_dim*2 , output_dim)  # 输出层与输入层的维度相同
     def forward(self, inputs):
@@ -132,12 +166,8 @@ class MDnet(nn.Module):
         data = pack_padded_sequence(embed_tensor, seqlen, batch_first=True, enforce_sorted=False).cuda()
         pad_data, seq_len = pad_packed_sequence(data, batch_first=True)
 
-
-        conv_input_data = embed_tensor  # , seq_len = pad_packed_sequence(data, batch_first=True)
-        conv_input_data = conv_input_data.transpose(1, 2)
-        conv_out = self.conv1(conv_input_data).transpose(1, 2)
-        conv_out = pack_padded_sequence(conv_out, seqlen, batch_first=True, enforce_sorted=False).cuda()
-        conv_out_data,_=pad_packed_sequence(conv_out, batch_first=True)
+  # , seq_len = pad_packed_sequence(data, batch_first=True)
+        conv_out = self.cnn(embed_tensor)
 
         # 开始自注意力运算
         #self_attention_output = self.self_attention(pad_data, seq_len)
@@ -155,17 +185,15 @@ class MDnet(nn.Module):
 
         #conv_out_data = pack_padded_sequence(self_attention_output, seqlen, batch_first=True,enforce_sorted=False).cuda()
         # 注意力机制运算
-        t=torch.mean(conv_out_data, 1).unsqueeze(-1)
-        t=t.expand(t.shape[0],t.shape[1],t.shape[2]*2)
-        t=t.reshape([t.shape[0],1,256])
-        s = t#self.get_s(self_attention_output, seq_len)
+
+        s = conv_out.unsqueeze(1)#self.get_s(self_attention_output, seq_len)
 
         self_attention_output = self.self_attention(torch.cat([pad_data,pad_data],-1), seq_len)
 
 
         dinput1 = self.attention(s, encoder_hidden_output_gru, seq_len)
         dinput2= self.attention(self_attention_output, encoder_hidden_output_gru, seq_len)
-        dinput=torch.mean(torch.cat([dinput1,dinput2],1),1).unsqueeze(1)
+        dinput=torch.cat([dinput1,dinput2],1).reshape(len(dinput1),-1)
         x=self.dropoutrnn(dinput)
         gru_output=self.rnnfc(x)
 
@@ -175,15 +203,9 @@ class MDnet(nn.Module):
         #
         # output=self.outfc(torch.cat([gru_output,sa_output],-1))
 
-        return gru_output
+        return gru_output.unsqueeze(1)
 
-    def get_s(self, encoder_hidden_output, seqlen):
-        batch = []
-        for i in range(len(seqlen)):
-            batch.append(i)
-        index = seqlen - 1
-        s = encoder_hidden_output[batch, index, :]
-        return s.unsqueeze(1)
+
 
     def convert_woed2ids(self, words):
         listids = []
@@ -197,7 +219,7 @@ class MDnet(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while (len(listids_one) < 4000):
+            while (len(listids_one) < 1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids), seqlen
@@ -219,7 +241,7 @@ class FastText(nn.Module):
         super().__init__()
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
+        self.embedder = nn.Embedding(11000, input_dim)
 
         self.fc = nn.Linear(128, output_dim)  # 输出层与输入层的维度相同
 
@@ -245,7 +267,7 @@ class FastText(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
+            while(len(listids_one)<1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids),seqlen
@@ -260,22 +282,22 @@ class FastText(nn.Module):
         return dic
 
 class TextCNN(nn.Module):
-    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.3):
+    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
         super().__init__()
-        self.dickw = self.readidc("Datasets\dick\word_kw.txt")
-        self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
+        self.dickw = self.readidc("Datasets/dick/word_kw.txt")
+        self.dicwk = self.readidc("Datasets/dick/word_wk.txt")
+        self.embedder = nn.Embedding(11000, input_dim)
 
         self.conv= nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=32, kernel_size=2, stride=1),
+            nn.Conv1d(in_channels=input_dim, out_channels=input_dim, kernel_size=2, stride=1),
             nn.ReLU(),
-            nn.Conv1d(in_channels=32, out_channels=1, kernel_size=2, stride=1),
+            nn.Conv1d(in_channels=input_dim, out_channels=input_dim, kernel_size=2, stride=1),
             nn.ReLU(),
         )
-        self.maxpool=nn.MaxPool1d(2)
-        self.avgpool = nn.AvgPool1d(2)
+        self.maxpool=nn.MaxPool1d(1000-2)
+        self.avgpool = nn.AvgPool1d(1000-2)
         self.fn=nn.Flatten()
-        self.fc = nn.Linear(3998, output_dim)  # 输出层与输入层的维度相同
+        self.fc = nn.Linear(input_dim*2, output_dim)  # 输出层与输入层的维度相同
 
     def forward(self, inputs):
         tensorwords, seqlen = self.convert_woed2ids(inputs)
@@ -301,7 +323,7 @@ class TextCNN(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
+            while(len(listids_one)<1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids),seqlen
@@ -315,35 +337,52 @@ class TextCNN(nn.Module):
         file.close()
         return dic
 
+
+class ST_MFLC_TextCNN(nn.Module):
+    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.3):
+        super().__init__()
+
+        self.conv1p= nn.Sequential(
+            nn.Conv1d(in_channels=input_dim, out_channels=input_dim, kernel_size=2, stride=1),
+            nn.ReLU(),
+            nn.MaxPool1d(1000 - 2)
+        )
+
+        self.conv2p = nn.Sequential(
+            nn.Conv1d(in_channels=input_dim, out_channels=input_dim, kernel_size=2, stride=1),
+            nn.ReLU(),
+            nn.MaxPool1d(1000 - 2)
+        )
+        self.fn = nn.Flatten()
+        self.fc = nn.Linear(input_dim*2, output_dim)  # 输出层与输入层的维度相同
+
+    def forward(self, embed_tensor):
+        conv_out1=self.conv1p( embed_tensor)
+        conv_out2=self.conv2p( embed_tensor)
+
+        cnn_out=torch.cat([conv_out1,conv_out2],-1).squeeze(1)
+        cnn_fc_out=self.fn(cnn_out)
+        cnn_fc_out=self.fn(cnn_fc_out)
+        output=self.fc(cnn_fc_out)
+
+        return output.unsqueeze(1)
 class ST_MFLC(nn.Module):
     def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
         super().__init__()
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.cnn_embed=nn.Embedding(20000, input_dim)
-        self.TextCNN = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=64, kernel_size=2, stride=1),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=64, out_channels=32, kernel_size=2, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-            nn.Conv1d(in_channels=32, out_channels=16, kernel_size=2, stride=1),
-            nn.ReLU(),
-            nn.Conv1d(in_channels=16, out_channels=1, kernel_size=2, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
+        self.cnn_embed=nn.Embedding(11000, input_dim)
+        self.TextCNN=ST_MFLC_TextCNN()
 
-        )
-        self.fccnn = nn.Linear(998, output_dim)  # 输出层与输入层的维度相同
 
 
         self.TextRNN = nn.Sequential(
-            nn.Embedding(20000, input_dim),
+            nn.Embedding(11000, input_dim),
             nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True),
         )
         self.fcRNN = nn.Linear(256, 6)
 
-        self.embed_sa = nn.Embedding(20000, input_dim)
+        self.embed_sa = nn.Embedding(11000, input_dim)
         self.self_attention=Self_Attention(hidden_dim, False)
         self.fcsa = nn.Linear(128, output_dim)  # 输出层与输入层的维度相同
 
@@ -356,17 +395,16 @@ class ST_MFLC(nn.Module):
         data = pack_padded_sequence(tensorwords, seqlen, batch_first=True, enforce_sorted=False).cuda()
         input_data,seq_len = pad_packed_sequence(data, batch_first=True)
 
-        cnndata = pack_padded_sequence(tensorwords, [4000]*input_data.shape[0], batch_first=True, enforce_sorted=False).cuda()
+        cnndata = pack_padded_sequence(tensorwords, [1000]*input_data.shape[0], batch_first=True, enforce_sorted=False).cuda()
         cnn_input_data, cnn_seq_len = pad_packed_sequence(cnndata, batch_first=True)
 
         cnn_input_data_embed=self.cnn_embed(cnn_input_data)
         cnnout=self.TextCNN(cnn_input_data_embed.transpose(1,2))
-        cnnout=self.fccnn(cnnout)
 
 
         rnnout,_ = self.TextRNN(input_data)
-        rnnout=rnnout[:, -1, :]
-        rnnout=self.fcRNN(rnnout).unsqueeze(1)
+        rnnout=self.get_s( rnnout,seq_len)#rnnout[:, -1, :]
+        rnnout=self.fcRNN(rnnout)
 
         input_embed_sa=self.embed_sa(input_data)
         saout = self.self_attention(input_embed_sa,seq_len)
@@ -400,7 +438,7 @@ class ST_MFLC(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while (len(listids_one) < 4000):
+            while (len(listids_one) < 1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids), seqlen
@@ -413,109 +451,12 @@ class ST_MFLC(nn.Module):
         file.close()
         return dic
 
-
-
-class CNN3_LSTM(nn.Module):
-    def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
-        super().__init__()
-        self.dickw = self.readidc("Datasets\dick\word_kw.txt")
-        self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
-
-        self.conv1 = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=32, kernel_size=3, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-            nn.Conv1d(in_channels=32, out_channels=1, kernel_size=3, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-        )
-        self.conv2 = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=32, kernel_size=4, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-            nn.Conv1d(in_channels=32, out_channels=1, kernel_size=4, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-
-        )
-        self.conv3 = nn.Sequential(
-            nn.Conv1d(in_channels=128, out_channels=32, kernel_size=5, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-            nn.Conv1d(in_channels=32, out_channels=1, kernel_size=5, stride=1),
-            nn.ReLU(),
-            nn.MaxPool1d(2),
-        )
-        self.fcconv=nn.Linear(2992,hidden_dim*2)
-        self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
-        self.attention = Attention(hidden_dim, True)
-        self.dropout=nn.Dropout(dropout)
-        self.linear = nn.Linear(hidden_dim * 2, output_dim)  # 输出层与输入层的维度相同
-
-    def forward(self, inputs):
-        tensorwords, seqlen = self.convert_woed2ids(inputs)
-        embed_tensor = self.convert_ids2vector(tensorwords.cuda())
-        data = pack_padded_sequence(embed_tensor, seqlen, batch_first=True, enforce_sorted=False).cuda()
-        conv_input_data=embed_tensor#, seq_len = pad_packed_sequence(data, batch_first=True)
-        conv_input_data=conv_input_data.transpose(1,2)
-        conv1_out=self.conv1(conv_input_data)
-        conv2_out = self.conv2(conv_input_data)
-        conv3_out = self.conv3(conv_input_data)
-        conv_out=torch.cat([conv1_out,conv2_out,conv3_out],-1)
-
-        #填充确保每一个批次都一模一样
-        conv_out=self.fcconv(conv_out)
-
-        encoder_out, hidden_hc = self.lstm(data)
-
-        encoder_hidden_output, seq_len = pad_packed_sequence(encoder_out, batch_first=True)
-
-        atten_out = self.attention(conv_out, encoder_hidden_output,seq_len)
-        feature = self.dropout(atten_out)
-        output = self.linear(feature)
-        return output
-    def get_s(self,encoder_hidden_output,seqlen):
-        batch=[]
-        for i in range(len(seqlen)):
-            batch.append(i)
-        index=seqlen-1
-        s=encoder_hidden_output[batch,index,:]
-        return s.unsqueeze(1)
-
-
-    def convert_woed2ids(self,words):
-        listids=[]
-
-        seqlen=[]
-        for oneword in  words:
-            listids_one = []
-            for char in oneword:
-                if char not in self.dicwk.keys():
-                    listids_one.append(self.dicwk['puk'])
-                else:
-                    listids_one.append(self.dicwk[char])
-            seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
-                listids_one.append(self.dicwk['pad'])
-            listids.append(listids_one)
-        return torch.tensor(listids),seqlen
-    def convert_ids2vector(self,tensorwords):
-
-        return self.embedder(tensorwords)
-    def readidc(self,path):
-        file = open(path, 'r',encoding="utf-8")
-        js = file.read()
-        dic = eval(js)
-        file.close()
-        return dic
-
 class BiLSTM(nn.Module):
     def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
         super().__init__()
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
+        self.embedder = nn.Embedding(11000, input_dim)
         self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=True, batch_first=True)
         self.dropout=nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_dim * 2, output_dim)  # 输出层与输入层的维度相同
@@ -551,7 +492,7 @@ class BiLSTM(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
+            while(len(listids_one)<1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids),seqlen
@@ -565,16 +506,12 @@ class BiLSTM(nn.Module):
         file.close()
         return dic
 
-
-
-
-
 class LSTM(nn.Module):
     def __init__(self, input_dim=128, hidden_dim=128, num_layers=2, output_dim=6, dropout=0.2):
         super().__init__()
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
+        self.embedder = nn.Embedding(11000, input_dim)
         self.lstm=nn.LSTM(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=False, batch_first=True)
         self.dropout=nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_dim, output_dim)  # 输出层与输入层的维度相同
@@ -610,7 +547,7 @@ class LSTM(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
+            while(len(listids_one)<1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids),seqlen
@@ -629,7 +566,7 @@ class Simple_RNN(nn.Module):
         super().__init__()
         self.dickw = self.readidc("Datasets\dick\word_kw.txt")
         self.dicwk = self.readidc("Datasets\dick\word_wk.txt")
-        self.embedder = nn.Embedding(20000, input_dim)
+        self.embedder = nn.Embedding(11000, input_dim)
         self.lstm=nn.RNN(input_dim, hidden_dim, num_layers, dropout=dropout, bidirectional=False, batch_first=True)
         self.dropout=nn.Dropout(dropout)
         self.linear = nn.Linear(hidden_dim, output_dim)  # 输出层与输入层的维度相同
@@ -665,7 +602,7 @@ class Simple_RNN(nn.Module):
                 else:
                     listids_one.append(self.dicwk[char])
             seqlen.append(len(listids_one))
-            while(len(listids_one)<4000):
+            while(len(listids_one)<1000):
                 listids_one.append(self.dicwk['pad'])
             listids.append(listids_one)
         return torch.tensor(listids),seqlen
